@@ -1,0 +1,52 @@
+load("@rules_zig//zig:defs.bzl", "BINARY_KIND", "zig_binary")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_binary")
+# load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
+
+zig_binary(
+    name = "glibc-stubs-generator",
+    main = "main.zig",
+    kind = BINARY_KIND.exe,
+    visibility = ["//visibility:public"],
+)
+
+# run_binary(
+#     name = "generate_aarch64-linux-gnu_stubs",
+#     srcs = [
+#         "//:abilists"
+#     ],
+#     args = [
+#         "-target",
+#         "aarch64-linux-gnu",
+#         "-o",
+#         "$@",
+#         "$(location //:abilists)"
+#     ],
+#     out_dirs = [
+#         "build",
+#     ],
+#     tool = ":glibc-stubs-generator",
+# )
+
+PLATFORMS = [
+    "//platforms:aarch64-macos-none",
+    "//platforms:x86_64-macos-none",
+    "//platforms:x86_64-linux-musl",
+    "//platforms:aarch64-linux-musl",
+]
+
+[
+    platform_transition_binary(
+        name = "glibc-stubs-generator-" + platform.split(":")[1],
+        binary = ":glibc-stubs-generator",
+        target_platform = platform,
+    )
+    for platform in PLATFORMS
+]
+    
+filegroup(
+    name = "all_platforms",
+    srcs = [
+        "glibc-stubs-generator-{}".format(platform.split(":")[1])
+        for platform in PLATFORMS
+    ],
+)

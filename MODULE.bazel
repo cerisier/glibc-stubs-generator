@@ -1,0 +1,40 @@
+module(
+    name = "glibc-stubs-generator",
+    version = "0.0.1"
+)
+
+bazel_dep(name = "aspect_bazel_lib", version = "2.14.0")
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "hermetic_cc_toolchain", version = "3.2.0")
+
+RULES_ZIG_COMMIT = "b9739c615ce62b64ee595ac4bcd9ee7cc06b0422" # branch=zml
+
+bazel_dep(name = "rules_zig", version = "0.8.0")
+archive_override(
+    module_name = "rules_zig",
+    urls = ["https://github.com/zml/rules_zig/archive/{}.tar.gz".format(RULES_ZIG_COMMIT)],
+    integrity = "sha256-p1rYD9gvYS3DgBjN6jo1pB86Kr4k2wojKjVpYRTZ3Us=",
+    strip_prefix = "rules_zig-{}".format(RULES_ZIG_COMMIT),
+)
+
+zig = use_extension("@rules_zig//zig:extensions.bzl", "zig")
+zig.index(file = "//:zig_index.json")
+zig.toolchain(zig_version = "0.14.0")
+zig.mirrors(urls = [
+    "https://mirror.zml.ai/zig",
+])
+use_repo(zig, "zig_toolchains")
+
+register_toolchains("@rules_zig//zig/target:all")
+register_toolchains("@zig_toolchains//:all")
+
+toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+use_repo(toolchains, "zig_sdk", "zig_sdk-linux-amd64", "zig_sdk-linux-arm64", "zig_sdk-macos-amd64", "zig_sdk-macos-arm64", "zig_sdk-windows-amd64")
+
+register_toolchains(
+    "@zig_sdk//toolchain:linux_amd64_musl",
+    "@zig_sdk//toolchain:linux_arm64_musl",
+    "@zig_sdk//toolchain:darwin_amd64",
+    "@zig_sdk//toolchain:darwin_arm64",
+)
