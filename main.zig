@@ -231,17 +231,36 @@ pub fn buildSharedObjects(o_directory: *fs.Dir, target: std.Target, abilists_pat
         map_contents.deinit(); // The most recent allocation of an arena can be freed :)
     }
 
-
     var stubs_asm = std.ArrayList(u8).init(gpa);
     defer stubs_asm.deinit();
 
     for (libs, 0..) |lib, lib_i| {
+        stubs_asm.shrinkRetainingCapacity(0);
 
+        // This is a difference between this tool and the original zig code.
+        // Here we choose to always generate all libraries even if they were removed in subsequent versions of the glibc
         if (lib.removed_in) |rem_in| {
-            if (target_version.order(rem_in) != .lt) continue;
+            if (target_version.order(rem_in) != .lt) {
+                try stubs_asm.writer().print(
+                    \\.rodata
+                    \\.balign {d}
+                    \\.local _dummy_stub_{s}
+                    \\_dummy_stub_{s}: {s} 0
+                    \\
+                , .{
+                    target.ptrBitWidth() / 8,
+                    lib.name,
+                    lib.name,
+                    wordDirective(target),
+                });
+
+                var lib_name_buf: [32]u8 = undefined; // Larger than each of the names "c", "pthread", etc.
+                const asm_file_basename = std.fmt.bufPrint(&lib_name_buf, "{s}.s", .{lib.name}) catch unreachable;
+                try o_directory.writeFile(.{ .sub_path = asm_file_basename, .data = stubs_asm.items });
+                continue;
+            }
         }
 
-        stubs_asm.shrinkRetainingCapacity(0);
         try stubs_asm.appendSlice(".text\n");
 
         var sym_i: usize = 0;
