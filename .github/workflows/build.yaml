@@ -22,8 +22,6 @@ jobs:
           bazel build -c opt //:all_platforms
           mv bazel-out/darwin_arm64-opt/bin/glibc-stubs-generator glibc-stubs-generator_darwin_arm64
           mv bazel-out/darwin_amd64-opt/bin/glibc-stubs-generator glibc-stubs-generator_darwin_amd64
-          mv bazel-out/linux_amd64-opt/bin/glibc-stubs-generator glibc-stubs-generator_linux_amd64
-          mv bazel-out/linux_arm64-opt/bin/glibc-stubs-generator glibc-stubs-generator_linux_arm64
           mv bazel-out/linux_arm64_musl-opt/bin/glibc-stubs-generator glibc-stubs-generator_linux_arm64_musl
           mv bazel-out/linux_amd64_musl-opt/bin/glibc-stubs-generator glibc-stubs-generator_linux_amd64_musl
       - uses: actions/upload-artifact@v4
@@ -34,7 +32,5 @@ jobs:
           path: |
             glibc-stubs-generator_darwin_arm64
             glibc-stubs-generator_darwin_amd64
-            glibc-stubs-generator_linux_arm64
-            glibc-stubs-generator_linux_amd64
             glibc-stubs-generator_linux_arm64_musl
             glibc-stubs-generator_linux_amd64_musl

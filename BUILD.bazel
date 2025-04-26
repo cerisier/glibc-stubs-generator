@@ -30,8 +30,6 @@ zig_binary(
 PLATFORMS = [
     "//platforms:darwin_arm64",
     "//platforms:darwin_amd64",
-    "//platforms:linux_arm64",
-    "//platforms:linux_amd64",
     "//platforms:linux_arm64_musl",
     "//platforms:linux_amd64_musl",
 ]
