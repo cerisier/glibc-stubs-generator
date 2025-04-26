@@ -1,0 +1,26 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build_all:
+    uses: ./.github/workflows/build.yaml
+  release:
+    runs-on: ubuntu-latest
+    needs: build_all
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - run: shasum -a 256 glibc* > SHA256.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            glibc*
+            SHA256.txt
