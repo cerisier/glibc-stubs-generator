@@ -5,29 +5,7 @@ module(
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.14.0")
 bazel_dep(name = "platforms", version = "0.0.11")
-bazel_dep(name = "rules_cc", version = "0.1.1")
-
-HERMETIC_CC_TOOLCHAIN_COMMIT = "1f46faadb5c2751ec96fa8b34e41179b78fa3e7e" # unreleased commit for dev_dependency
-
-# Remove once rules_zig doesn't require it.
-# We don't want to impose this to downstream.
-bazel_dep(name = "hermetic_cc_toolchain", version = "4.0.0", dev_dependency = True)
-archive_override(
-    module_name = "hermetic_cc_toolchain",
-    urls = ["https://github.com/uber/hermetic_cc_toolchain/archive/{}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_COMMIT)],
-    integrity = "sha256-HC0MsB/XIZXsX4zN/rudu5VsBchObbm8fZ4HShFdxXg=",
-    strip_prefix = "hermetic_cc_toolchain-{}".format(HERMETIC_CC_TOOLCHAIN_COMMIT),
-)
-
-RULES_ZIG_COMMIT = "b9739c615ce62b64ee595ac4bcd9ee7cc06b0422" # branch=zml
-
-bazel_dep(name = "rules_zig", version = "0.8.0")
-archive_override(
-    module_name = "rules_zig",
-    urls = ["https://github.com/zml/rules_zig/archive/{}.tar.gz".format(RULES_ZIG_COMMIT)],
-    integrity = "sha256-p1rYD9gvYS3DgBjN6jo1pB86Kr4k2wojKjVpYRTZ3Us=",
-    strip_prefix = "rules_zig-{}".format(RULES_ZIG_COMMIT),
-)
+bazel_dep(name = "rules_zig", version = "0.12.2")
 
 zig = use_extension("@rules_zig//zig:extensions.bzl", "zig")
 zig.index(file = "//:zig_index.json")
@@ -37,16 +15,5 @@ zig.mirrors(urls = [
 ])
 use_repo(zig, "zig_toolchains")
 
-register_toolchains("@rules_zig//zig/target:all")
-register_toolchains("@zig_toolchains//:all")
-
-toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains", dev_dependency = True)
-use_repo(toolchains, "zig_sdk")
-
-register_toolchains(
-    "@zig_sdk//toolchain:linux_amd64_musl",
-    "@zig_sdk//toolchain:linux_arm64_musl",
-    "@zig_sdk//toolchain:darwin_amd64",
-    "@zig_sdk//toolchain:darwin_arm64",
-    dev_dependency = True,
-)
+register_toolchains("@rules_zig//zig/target:all", dev_dependency = True)
+register_toolchains("@zig_toolchains//:all", dev_dependency = True)

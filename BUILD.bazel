@@ -1,11 +1,10 @@
-load("@rules_zig//zig:defs.bzl", "BINARY_KIND", "zig_binary")
+load("@rules_zig//zig:defs.bzl", "zig_binary")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_binary")
 # load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
 
 zig_binary(
     name = "glibc-stubs-generator",
     main = "main.zig",
-    kind = BINARY_KIND.exe,
     visibility = ["//visibility:public"],
 )
 
