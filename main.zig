@@ -65,6 +65,75 @@ pub const LoadMetaDataError = error{
 
 pub const abilists_max_size = 800 * 1024; // Bigger than this and something is definitely borked.
 
+const LibioCompatibility = struct {
+    arch: std.Target.Cpu.Arch,
+    abi: std.Target.Abi,
+    pre_2_1: bool,
+};
+
+// glibc's libio/libio.h weakly references _IO_stdin_used when
+// SHLIB_COMPAT (libc, GLIBC_2_0, GLIBC_2_1) is true. That comparison uses
+// ABI_libc_GLIBC_2_0 and ABI_libc_GLIBC_2_1, generated from the target's
+// shlib-versions; it does not compare the selected glibc release. This table
+// covers the GNU Linux ABIs in Zig 0.14's available_libcs.
+const libio_compatibility = [_]LibioCompatibility{
+    // Distinct GLIBC_2.0 and GLIBC_2.1 ABI sets. MIPS retains GLIBC_2.0
+    // and maps GLIBC_2.1 to GLIBC_2.2, so the comparison is true there too.
+    .{ .arch = .m68k, .abi = .gnu, .pre_2_1 = true },
+    .{ .arch = .mips, .abi = .gnueabi, .pre_2_1 = true },
+    .{ .arch = .mips, .abi = .gnueabihf, .pre_2_1 = true },
+    .{ .arch = .mipsel, .abi = .gnueabi, .pre_2_1 = true },
+    .{ .arch = .mipsel, .abi = .gnueabihf, .pre_2_1 = true },
+    .{ .arch = .mips64, .abi = .gnuabi64, .pre_2_1 = true },
+    .{ .arch = .mips64, .abi = .gnuabin32, .pre_2_1 = true },
+    .{ .arch = .mips64el, .abi = .gnuabi64, .pre_2_1 = true },
+    .{ .arch = .mips64el, .abi = .gnuabin32, .pre_2_1 = true },
+    .{ .arch = .powerpc, .abi = .gnueabi, .pre_2_1 = true },
+    .{ .arch = .powerpc, .abi = .gnueabihf, .pre_2_1 = true },
+    .{ .arch = .sparc, .abi = .gnu, .pre_2_1 = true },
+    .{ .arch = .x86, .abi = .gnu, .pre_2_1 = true },
+
+    // Their earliest libc ABI set is GLIBC_2.2 or newer.
+    .{ .arch = .aarch64, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .aarch64_be, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .arc, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .arm, .abi = .gnueabi, .pre_2_1 = false },
+    .{ .arch = .arm, .abi = .gnueabihf, .pre_2_1 = false },
+    .{ .arch = .armeb, .abi = .gnueabi, .pre_2_1 = false },
+    .{ .arch = .armeb, .abi = .gnueabihf, .pre_2_1 = false },
+    .{ .arch = .csky, .abi = .gnueabi, .pre_2_1 = false },
+    .{ .arch = .csky, .abi = .gnueabihf, .pre_2_1 = false },
+    .{ .arch = .loongarch64, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .loongarch64, .abi = .gnusf, .pre_2_1 = false },
+    .{ .arch = .powerpc64, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .powerpc64le, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .riscv32, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .riscv64, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .s390x, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .sparc64, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .x86_64, .abi = .gnu, .pre_2_1 = false },
+    .{ .arch = .x86_64, .abi = .gnux32, .pre_2_1 = false },
+};
+
+comptime {
+    @setEvalBranchQuota(5000);
+    for (std.zig.target.available_libcs) |libc| {
+        if (libc.os != .linux or !libc.abi.isGnu()) continue;
+        var matches = 0;
+        for (libio_compatibility) |entry| {
+            if (entry.arch == libc.arch and entry.abi == libc.abi) matches += 1;
+        }
+        if (matches != 1) @compileError("classify each supported GNU Linux ABI exactly once for libio compatibility");
+    }
+}
+
+fn hasPre21LibioCompat(arch: std.Target.Cpu.Arch, abi: std.Target.Abi) bool {
+    for (libio_compatibility) |entry| {
+        if (entry.arch == arch and entry.abi == abi) return entry.pre_2_1;
+    }
+    @panic("unclassified glibc ABI for pre-2.1 libio compatibility");
+}
+
 /// This function will emit a log error when there is a problem with the zig
 /// installation and then return `error.ZigInstallationCorrupt`.
 pub fn loadMetaData(gpa: Allocator, contents: []const u8) LoadMetaDataError!*ABI {
@@ -429,17 +498,10 @@ pub fn buildSharedObjects(o_directory: *fs.Dir, target: std.Target, abilists_pat
 
         try stubs_asm.appendSlice(".rodata\n");
 
-        // glibc weakly references the CRT's `_IO_stdin_used` marker only when it builds
-        // GLIBC_2.0 libio compatibility code. That reference makes the linker export the
-        // marker so glibc can recognize an executable using the newer FILE layout.
-        // The GNU ABIs below start after GLIBC_2.1 and do not build that code, so their
-        // real libc has no reference. Keep a weak reference for other targets; a strong
-        // one makes lld reject executables that keep the marker local.
-        const emit_io_stdin_used = switch (target.cpu.arch) {
-            .x86_64, .aarch64, .arm, .s390x, .riscv64 => false,
-            else => true,
-        };
-        if (std.mem.eql(u8, lib.name, "c") and emit_io_stdin_used) {
+        // Legacy libio weakly references the CRT's marker to identify the
+        // newer FILE layout. A strong reference would reject executables that
+        // keep the marker local with a version script.
+        if (std.mem.eql(u8, lib.name, "c") and hasPre21LibioCompat(target.cpu.arch, target.abi)) {
             try stubs_asm.writer().print(
                 \\.balign {d}
                 \\.weak _IO_stdin_used
