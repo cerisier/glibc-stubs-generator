@@ -74,8 +74,11 @@ const LibioCompatibility = struct {
 // glibc's libio/libio.h weakly references _IO_stdin_used when
 // SHLIB_COMPAT (libc, GLIBC_2_0, GLIBC_2_1) is true. That comparison uses
 // ABI_libc_GLIBC_2_0 and ABI_libc_GLIBC_2_1, generated from the target's
-// shlib-versions; it does not compare the selected glibc release. This table
-// covers the GNU Linux ABIs in Zig 0.14's available_libcs.
+// shlib-versions (see include/shlib-compat.h and scripts/abi-versions.awk),
+// not the selected glibc release number. Across glibc 2.17-2.44, the libio
+// guard and each supported ABI's 2.0/2.1 ordering have the same result where
+// that ABI exists. Recheck both when adding a glibc release. This table covers
+// the GNU Linux ABIs in Zig 0.14's available_libcs.
 const libio_compatibility = [_]LibioCompatibility{
     // Distinct GLIBC_2.0 and GLIBC_2.1 ABI sets. MIPS retains GLIBC_2.0
     // and maps GLIBC_2.1 to GLIBC_2.2, so the comparison is true there too.
