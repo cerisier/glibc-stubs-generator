@@ -429,23 +429,17 @@ pub fn buildSharedObjects(o_directory: *fs.Dir, target: std.Target, abilists_pat
 
         try stubs_asm.appendSlice(".rodata\n");
 
-        // For some targets, the real `libc.so.6` will contain a weak reference to `_IO_stdin_used`,
-        // making the linker put the symbol in the dynamic symbol table. We likewise need to emit a
-        // reference to it here for that effect, or it will not show up, which in turn will cause
-        // the real glibc to think that the program was built against an ancient `FILE` structure
-        // (pre-glibc 2.1).
-        //
-        // Note that glibc only compiles in the legacy compatibility code for some targets; it
-        // depends on what is defined in the `shlib-versions` file for the particular architecture
-        // and ABI. Those files are preprocessed by 2 separate tools during the glibc build to get
-        // the final `abi-versions.h`, so it would be quite brittle to try to condition our emission
-        // of the `_IO_stdin_used` reference in the exact same way. The only downside of emitting
-        // the reference unconditionally is that it ends up being unused for newer targets.
-        //
-        // The reference must be weak, like glibc's: lld rejects a strong reference from a DSO to a
-        // symbol the executable keeps local, e.g. with a `local: *;` version script, whereas the
-        // real `libc.so.6` links fine against such executables.
-        if (std.mem.eql(u8, lib.name, "c")) {
+        // glibc weakly references the CRT's `_IO_stdin_used` marker only when it builds
+        // GLIBC_2.0 libio compatibility code. That reference makes the linker export the
+        // marker so glibc can recognize an executable using the newer FILE layout.
+        // The GNU ABIs below start after GLIBC_2.1 and do not build that code, so their
+        // real libc has no reference. Keep a weak reference for other targets; a strong
+        // one makes lld reject executables that keep the marker local.
+        const emit_io_stdin_used = switch (target.cpu.arch) {
+            .x86_64, .aarch64, .arm, .s390x, .riscv64 => false,
+            else => true,
+        };
+        if (std.mem.eql(u8, lib.name, "c") and emit_io_stdin_used) {
             try stubs_asm.writer().print(
                 \\.balign {d}
                 \\.weak _IO_stdin_used
