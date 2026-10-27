@@ -440,16 +440,15 @@ pub fn buildSharedObjects(o_directory: *fs.Dir, target: std.Target, abilists_pat
         // and ABI. Those files are preprocessed by 2 separate tools during the glibc build to get
         // the final `abi-versions.h`, so it would be quite brittle to try to condition our emission
         // of the `_IO_stdin_used` reference in the exact same way. The only downside of emitting
-        // the reference unconditionally is that it ends up being unused for newer targets; it
-        // otherwise has no negative effect.
+        // the reference unconditionally is that it ends up being unused for newer targets.
         //
-        // glibc uses a weak reference because it has to work with programs compiled against pre-2.1
-        // versions where the symbol didn't exist. We only care about modern glibc versions, so use
-        // a strong reference.
+        // The reference must be weak, like glibc's: lld rejects a strong reference from a DSO to a
+        // symbol the executable keeps local, e.g. with a `local: *;` version script, whereas the
+        // real `libc.so.6` links fine against such executables.
         if (std.mem.eql(u8, lib.name, "c")) {
             try stubs_asm.writer().print(
                 \\.balign {d}
-                \\.globl _IO_stdin_used
+                \\.weak _IO_stdin_used
                 \\{s} _IO_stdin_used
                 \\
             , .{
