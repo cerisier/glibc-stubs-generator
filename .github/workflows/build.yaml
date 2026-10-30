@@ -18,6 +18,7 @@ jobs:
       artifact: ${{steps.upload.outputs.artifact-url}}
     steps:
       - uses: actions/checkout@v4
+      - run: bazel test //tests/... --test_output=errors
       - run: |
           bazel build -c opt //:all_platforms
           mv bazel-out/darwin_arm64-opt/bin/glibc-stubs-generator glibc-stubs-generator_darwin_arm64
