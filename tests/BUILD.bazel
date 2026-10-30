@@ -1,0 +1,56 @@
+sh_test(
+    name = "local_symbols_x86_64_test",
+    size = "small",
+    srcs = ["local_symbols_test.sh"],
+    args = [
+        "$(rootpath //:glibc-stubs-generator)",
+        "$(ZIG_BIN)",
+        "$(rootpath main.c)",
+        "x86_64-linux-gnu.2.28",
+        "absent",
+    ],
+    data = [
+        "main.c",
+        "//:glibc-stubs-generator",
+        "@rules_zig//zig:resolved_toolchain",
+    ],
+    toolchains = ["@rules_zig//zig:resolved_toolchain"],
+)
+
+sh_test(
+    name = "local_symbols_aarch64_test",
+    size = "small",
+    srcs = ["local_symbols_test.sh"],
+    args = [
+        "$(rootpath //:glibc-stubs-generator)",
+        "$(ZIG_BIN)",
+        "$(rootpath main.c)",
+        "aarch64-linux-gnu.2.28",
+        "absent",
+    ],
+    data = [
+        "main.c",
+        "//:glibc-stubs-generator",
+        "@rules_zig//zig:resolved_toolchain",
+    ],
+    toolchains = ["@rules_zig//zig:resolved_toolchain"],
+)
+
+sh_test(
+    name = "local_symbols_x86_test",
+    size = "small",
+    srcs = ["local_symbols_test.sh"],
+    args = [
+        "$(rootpath //:glibc-stubs-generator)",
+        "$(ZIG_BIN)",
+        "$(rootpath main.c)",
+        "x86-linux-gnu.2.28",
+        "weak",
+    ],
+    data = [
+        "main.c",
+        "//:glibc-stubs-generator",
+        "@rules_zig//zig:resolved_toolchain",
+    ],
+    toolchains = ["@rules_zig//zig:resolved_toolchain"],
+)

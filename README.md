@@ -33,6 +33,17 @@ drwxr-xr-x  26 root  staff     832 01 Jan 00:00 ..
 > 
 > https://github.com/ziglang/zig/blob/3746b3d93ce895131ab1b2dea5391e5efa9fccf7/lib/libc/glibc/abilists
 
+## Tests
+
+Run `bazel test //tests/...`. The tests use the pinned Zig toolchain and its
+glibc ABI data to generate and link stubs for x86_64, aarch64, and i386.
+Executables that keep `_IO_stdin_used` local must link, including when a
+version script localizes it. The fixture uses hidden visibility because
+Zig 0.14 does not forward version scripts when linking executables;
+the generated libc must omit the reference on newer ABIs and keep it weak
+on ABIs with pre-2.1 libio compatibility. The cross-linked executables are
+not run.
+
 ## Resources
 
 See https://github.com/ziglang/glibc-abi-tool for details about the `.abilist` 
